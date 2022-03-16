@@ -154,8 +154,9 @@ renderLibraries :: Map String (Section Library) -> [Element]
 renderLibraries = map renderNamedLibrary . Map.toList
 
 renderNamedLibrary :: (String, Section Library) -> Element
-renderNamedLibrary (name, sect) =
-  Stanza ("library " ++ name) (renderLibrarySection sect)
+renderNamedLibrary (name, sect)
+  | "" <- name = Stanza "library" (renderLibrarySection sect)
+  | otherwise = Stanza ("library " ++ name) (renderLibrarySection sect)
 
 renderExecutables :: Map String (Section Executable) -> [Element]
 renderExecutables = map renderExecutable . Map.toList
