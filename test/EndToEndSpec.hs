@@ -1082,7 +1082,7 @@ spec = around_ (inTempDirectoryNamed "foo") $ do
         internal-libraries:
           bar:
             source-dirs: src
-        |] `shouldRenderTo` internalLibrary "bar" [i|
+        |] `shouldRenderTo` namedLibrary "bar" [i|
         exposed-modules:
             Foo
         other-modules:
@@ -1114,7 +1114,7 @@ spec = around_ (inTempDirectoryNamed "foo") $ do
         internal-libraries:
           bar:
             visibility: public
-        |] `shouldRenderTo` (internalLibrary "bar" [i|
+        |] `shouldRenderTo` (namedLibrary "bar" [i|
         visibility: public
         other-modules:
             Paths_foo
@@ -1816,8 +1816,8 @@ library
   default-language: Haskell2010
 |]
 
-internalLibrary :: String -> String -> Package
-internalLibrary name e = (package content) {packageCabalVersion = "2.0"}
+namedLibrary :: String -> String -> Package
+namedLibrary name e = (package content) {packageCabalVersion = "2.0"}
   where
     content = [i|
 library #{name}

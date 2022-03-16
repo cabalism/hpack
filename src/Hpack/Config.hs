@@ -13,6 +13,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections #-}
 module Hpack.Config (
 -- | /__NOTE:__/ This module is exposed to allow integration of Hpack into
 -- other tools.  It is not meant for general use by end users.  The following
@@ -764,23 +765,24 @@ determineCabalVersion inferredLicense pkg@Package{..} = (
       , makeVersion [1,18] <$ guard (not (null packageExtraDocFiles))
       ]
 
-    libraryCabalVersion :: Section Library -> Maybe Version
-    libraryCabalVersion sect = maximum [
-        makeVersion [1,22] <$ guard (has libraryReexportedModules)
-      , makeVersion [2,0]  <$ guard (has librarySignatures)
-      , makeVersion [2,0] <$ guard (has libraryGeneratedModules)
-      , makeVersion [3,0] <$ guard (has libraryVisibility)
-      , sectionCabalVersion (concatMap getLibraryModules) sect
-      ]
-      where
-        has field = any (not . null . field) sect
-
     librariesCabalVersion :: Map String (Section Library) -> Maybe Version
     librariesCabalVersion libraries
       | Map.null libraries = Nothing
+      | [("", x)] <- Map.toList libraries = libraryCabalVersion x
       | otherwise = foldr max (Just $ makeVersion [2,0]) versions
       where
         versions = libraryCabalVersion <$> Map.elems libraries
+
+        libraryCabalVersion :: Section Library -> Maybe Version
+        libraryCabalVersion sect = maximum [
+            makeVersion [1,22] <$ guard (has libraryReexportedModules)
+          , makeVersion [2,0]  <$ guard (has librarySignatures)
+          , makeVersion [2,0] <$ guard (has libraryGeneratedModules)
+          , makeVersion [3,0] <$ guard (has libraryVisibility)
+          , sectionCabalVersion (concatMap getLibraryModules) sect
+          ]
+          where
+            has field = any (not . null . field) sect
 
     executablesCabalVersion :: Map String (Section Executable) -> Maybe Version
     executablesCabalVersion = foldr max Nothing . map executableCabalVersion . Map.elems
@@ -1139,7 +1141,11 @@ toPackage_ dir (Product g PackageConfig{..}) = do
     toExecutables = toSections >=> traverse (liftIO . toExecutable dir packageName_)
 
   mLibrary <- traverse (toSect >=> toLib) packageConfigLibrary
-  libraries <- toSections packageConfigLibraries >>= traverse toLib
+  namedLibraries <- toSections packageConfigLibraries >>= traverse toLib
+  let libraries =
+        Map.union
+          (Map.fromList $ ("" :: String,) <$> maybeToList mLibrary)
+          namedLibraries
 
   executables <- toExecutables executableMap
   tests <- toExecutables packageConfigTests
@@ -1148,8 +1154,8 @@ toPackage_ dir (Product g PackageConfig{..}) = do
   licenseFileExists <- liftIO $ doesFileExist (dir </> "LICENSE")
 
   missingSourceDirs <- liftIO $ nub . sort <$> filterM (fmap not <$> doesDirectoryExist . (dir </>)) (
-       maybe [] sectionSourceDirs mLibrary
-    ++ concatMap sectionSourceDirs libraries
+    maybe [] sectionSourceDirs mLibrary
+    ++   concatMap sectionSourceDirs namedLibraries
     ++ concatMap sectionSourceDirs executables
     ++ concatMap sectionSourceDirs tests
     ++ concatMap sectionSourceDirs benchmarks
