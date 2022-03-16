@@ -149,8 +149,7 @@ package name version = Package {
   , packageDataDir = Nothing
   , packageSourceRepository = Nothing
   , packageCustomSetup = Nothing
-  , packageLibrary = Nothing
-  , packageInternalLibraries = mempty
+  , packageLibraries = mempty
   , packageExecutables = mempty
   , packageTests = mempty
   , packageBenchmarks = mempty
@@ -180,7 +179,7 @@ packageDependencies Package{..} = nub . sortBy (comparing (lexicographically . f
      (concatMap deps packageExecutables)
   ++ (concatMap deps packageTests)
   ++ (concatMap deps packageBenchmarks)
-  ++ maybe [] deps packageLibrary
+  ++ (concatMap deps packageLibraries)
   where
     deps xs = [(name, info) | (name, info) <- (Map.toList . unDependencies . sectionDependencies) xs]
 
@@ -567,7 +566,7 @@ data PackageConfig_ library executable = PackageConfig {
 , packageConfigGit :: Maybe String
 , packageConfigCustomSetup :: Maybe CustomSetupSection
 , packageConfigLibrary :: Maybe library
-, packageConfigInternalLibraries :: Maybe (Map String library)
+, packageConfigLibraries :: Maybe (Map String library)
 , packageConfigExecutable :: Maybe executable
 , packageConfigExecutables :: Maybe (Map String executable)
 , packageConfigTests :: Maybe (Map String executable)
@@ -595,14 +594,14 @@ data DefaultsConfig = DefaultsConfig {
 traversePackageConfig :: Traversal PackageConfig
 traversePackageConfig t p@PackageConfig{..} = do
   library <- traverse (traverseWithCommonOptions t) packageConfigLibrary
-  internalLibraries <- traverseNamedConfigs t packageConfigInternalLibraries
+  libraries <- traverseNamedConfigs t packageConfigLibraries
   executable <- traverse (traverseWithCommonOptions t) packageConfigExecutable
   executables <- traverseNamedConfigs t packageConfigExecutables
   tests <- traverseNamedConfigs t packageConfigTests
   benchmarks <- traverseNamedConfigs t packageConfigBenchmarks
   return p {
       packageConfigLibrary = library
-    , packageConfigInternalLibraries = internalLibraries
+    , packageConfigLibraries = libraries
     , packageConfigExecutable = executable
     , packageConfigExecutables = executables
     , packageConfigTests = tests
@@ -680,8 +679,7 @@ addPathsModuleToGeneratedModules  :: Package -> Version -> Package
 addPathsModuleToGeneratedModules pkg cabalVersion
   | cabalVersion < makeVersion [2] = pkg
   | otherwise = pkg {
-      packageLibrary = fmap mapLibrary <$> packageLibrary pkg
-    , packageInternalLibraries = fmap mapLibrary <$> packageInternalLibraries pkg
+      packageLibraries = fmap mapLibrary <$> packageLibraries pkg
     , packageExecutables = fmap mapExecutable <$> packageExecutables pkg
     , packageTests = fmap mapExecutable <$> packageTests pkg
     , packageBenchmarks = fmap mapExecutable <$> packageBenchmarks pkg
@@ -752,8 +750,7 @@ determineCabalVersion inferredLicense pkg@Package{..} = (
 
     version = fromMaybe (makeVersion [1,12]) $ maximum [
         packageCabalVersion
-      , packageLibrary >>= libraryCabalVersion
-      , internalLibsCabalVersion packageInternalLibraries
+      , librariesCabalVersion packageLibraries
       , executablesCabalVersion packageExecutables
       , executablesCabalVersion packageTests
       , executablesCabalVersion packageBenchmarks
@@ -778,12 +775,12 @@ determineCabalVersion inferredLicense pkg@Package{..} = (
       where
         has field = any (not . null . field) sect
 
-    internalLibsCabalVersion :: Map String (Section Library) -> Maybe Version
-    internalLibsCabalVersion internalLibraries
-      | Map.null internalLibraries = Nothing
+    librariesCabalVersion :: Map String (Section Library) -> Maybe Version
+    librariesCabalVersion libraries
+      | Map.null libraries = Nothing
       | otherwise = foldr max (Just $ makeVersion [2,0]) versions
       where
-        versions = libraryCabalVersion <$> Map.elems internalLibraries
+        versions = libraryCabalVersion <$> Map.elems libraries
 
     executablesCabalVersion :: Map String (Section Executable) -> Maybe Version
     executablesCabalVersion = foldr max Nothing . map executableCabalVersion . Map.elems
@@ -930,8 +927,7 @@ data Package = Package {
 , packageDataDir :: Maybe FilePath
 , packageSourceRepository :: Maybe SourceRepository
 , packageCustomSetup :: Maybe CustomSetup
-, packageLibrary :: Maybe (Section Library)
-, packageInternalLibraries :: Map String (Section Library)
+, packageLibraries :: Map String (Section Library)
 , packageExecutables :: Map String (Section Executable)
 , packageTests :: Map String (Section Executable)
 , packageBenchmarks :: Map String (Section Executable)
@@ -1062,14 +1058,14 @@ expandSectionDefaults
   -> Warnings (Errors IO) (PackageConfig ParseCSources ParseCxxSources ParseJsSources)
 expandSectionDefaults programName userDataDir dir p@PackageConfig{..} = do
   library <- traverse (expandDefaults programName userDataDir dir) packageConfigLibrary
-  internalLibraries <- traverse (traverse (expandDefaults programName userDataDir dir)) packageConfigInternalLibraries
+  libraries <- traverse (traverse (expandDefaults programName userDataDir dir)) packageConfigLibraries
   executable <- traverse (expandDefaults programName userDataDir dir) packageConfigExecutable
   executables <- traverse (traverse (expandDefaults programName userDataDir dir)) packageConfigExecutables
   tests <- traverse (traverse (expandDefaults programName userDataDir dir)) packageConfigTests
   benchmarks <- traverse (traverse (expandDefaults programName userDataDir dir)) packageConfigBenchmarks
   return p{
       packageConfigLibrary = library
-    , packageConfigInternalLibraries = internalLibraries
+    , packageConfigLibraries = libraries
     , packageConfigExecutable = executable
     , packageConfigExecutables = executables
     , packageConfigTests = tests
@@ -1143,7 +1139,7 @@ toPackage_ dir (Product g PackageConfig{..}) = do
     toExecutables = toSections >=> traverse (liftIO . toExecutable dir packageName_)
 
   mLibrary <- traverse (toSect >=> toLib) packageConfigLibrary
-  internalLibraries <- toSections packageConfigInternalLibraries >>= traverse toLib
+  libraries <- toSections packageConfigLibraries >>= traverse toLib
 
   executables <- toExecutables executableMap
   tests <- toExecutables packageConfigTests
@@ -1153,7 +1149,7 @@ toPackage_ dir (Product g PackageConfig{..}) = do
 
   missingSourceDirs <- liftIO $ nub . sort <$> filterM (fmap not <$> doesDirectoryExist . (dir </>)) (
        maybe [] sectionSourceDirs mLibrary
-    ++ concatMap sectionSourceDirs internalLibraries
+    ++ concatMap sectionSourceDirs libraries
     ++ concatMap sectionSourceDirs executables
     ++ concatMap sectionSourceDirs tests
     ++ concatMap sectionSourceDirs benchmarks
@@ -1208,8 +1204,7 @@ toPackage_ dir (Product g PackageConfig{..}) = do
       , packageDataDir = packageConfigDataDir
       , packageSourceRepository = sourceRepository
       , packageCustomSetup = mCustomSetup
-      , packageLibrary = mLibrary
-      , packageInternalLibraries = internalLibraries
+      , packageLibraries = libraries
       , packageExecutables = executables
       , packageTests = tests
       , packageBenchmarks = benchmarks

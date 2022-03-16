@@ -323,7 +323,7 @@ spec = do
             cpp-options: -DTEST
         |]
         (`shouldBe` package {
-          packageLibrary = Just (section library) {sectionCppOptions = ["-DFOO", "-DLIB"]}
+          packageLibraries = [("", (section library) {sectionCppOptions = ["-DFOO", "-DLIB"]})]
         , packageExecutables = Map.fromList [("foo", (section $ executable "Main.hs") {sectionCppOptions = ["-DFOO", "-DFOO"]})]
         , packageTests = Map.fromList [("spec", (section $ executable "Spec.hs") {sectionCppOptions = ["-DFOO", "-DTEST"]})]
         }
@@ -347,7 +347,7 @@ spec = do
             cc-options: -O0
         |]
         (`shouldBe` package {
-          packageLibrary = Just (section library) {sectionCcOptions = ["-Wall", "-fLIB"]}
+          packageLibraries = [("", (section library) {sectionCcOptions = ["-Wall", "-fLIB"]})]
         , packageExecutables = Map.fromList [("foo", (section $ executable "Main.hs") {sectionCcOptions = ["-Wall", "-O2"]})]
         , packageTests = Map.fromList [("spec", (section $ executable "Spec.hs") {sectionCcOptions = ["-Wall", "-O0"]})]
         }
@@ -371,7 +371,7 @@ spec = do
             ghcjs-options: -ghcjs3
         |]
         (`shouldBe` package {
-          packageLibrary = Just (section library) {sectionGhcjsOptions = ["-dedupe", "-ghcjs1"]}
+          packageLibraries = [("", (section library) {sectionGhcjsOptions = ["-dedupe", "-ghcjs1"]})]
         , packageExecutables = Map.fromList [("foo", (section $ executable "Main.hs") {sectionGhcjsOptions = ["-dedupe", "-ghcjs2"]})]
         , packageTests = Map.fromList [("spec", (section $ executable "Spec.hs") {sectionGhcjsOptions = ["-dedupe", "-ghcjs3"]})]
         }
@@ -383,7 +383,7 @@ spec = do
           ld-options: -static
         |]
         (`shouldBe` package {
-          packageLibrary = Just (section library) {sectionLdOptions = ["-static"]}
+          packageLibraries = [("", (section library) {sectionLdOptions = ["-static"]})]
         }
         )
 
@@ -398,7 +398,7 @@ spec = do
             main: Main.hs
         |]
         (`shouldBe` package {
-          packageLibrary = Just (section library) {sectionBuildable = Just True}
+          packageLibraries = [("", (section library) {sectionBuildable = Just True})]
         , packageExecutables = Map.fromList [("foo", (section $ executable "Main.hs") {sectionBuildable = Just False})]
         }
         )
@@ -421,7 +421,7 @@ spec = do
               - foo
               - bar
           |]
-          (packageLibrary >>> (`shouldBe` Just (section library) {sectionSourceDirs = ["foo", "bar"]}))
+          (packageLibraries >>> (`shouldBe` [("", (section library) {sectionSourceDirs = ["foo", "bar"]})]))
 
       it "accepts default-extensions" $ do
         withPackageConfig_ [i|
@@ -430,7 +430,7 @@ spec = do
               - Foo
               - Bar
           |]
-          (packageLibrary >>> (`shouldBe` Just (section library) {sectionDefaultExtensions = ["Foo", "Bar"]}))
+          (packageLibraries >>> (`shouldBe` [("", (section library) {sectionDefaultExtensions = ["Foo", "Bar"]})]))
 
       it "accepts global default-extensions" $ do
         withPackageConfig_ [i|
@@ -439,7 +439,7 @@ spec = do
             - Bar
           library: {}
           |]
-          (packageLibrary >>> (`shouldBe` Just (section library) {sectionDefaultExtensions = ["Foo", "Bar"]}))
+          (packageLibraries >>> (`shouldBe` [("", (section library) {sectionDefaultExtensions = ["Foo", "Bar"]})]))
 
       it "accepts global source-dirs" $ do
         withPackageConfig_ [i|
@@ -448,14 +448,14 @@ spec = do
             - bar
           library: {}
           |]
-          (packageLibrary >>> (`shouldBe` Just (section library) {sectionSourceDirs = ["foo", "bar"]}))
+          (packageLibraries >>> (`shouldBe` [("", (section library) {sectionSourceDirs = ["foo", "bar"]})]))
 
       it "allows to specify exposed" $ do
         withPackageConfig_ [i|
           library:
             exposed: no
           |]
-          (packageLibrary >>> (`shouldBe` Just (section library{libraryExposed = Just False})))
+          (packageLibraries >>> (`shouldBe` [("", section library{libraryExposed = Just False})]))
 
     context "when reading executable section" $ do
       it "reads executables section" $ do

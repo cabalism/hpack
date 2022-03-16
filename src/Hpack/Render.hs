@@ -77,16 +77,12 @@ renderPackageWith settings headerFieldsAlignment existingFieldOrder sectionsFiel
     customSetup :: [Element]
     customSetup = maybe [] (return . renderCustomSetup) packageCustomSetup
 
-    library :: [Element]
-    library = maybe [] (return . renderLibrary) packageLibrary
-
     stanzas :: [Element]
     stanzas = concat [
         sourceRepository
       , customSetup
       , map renderFlag packageFlags
-      , library
-      , renderInternalLibraries packageInternalLibraries
+      , renderLibraries packageLibraries
       , renderExecutables packageExecutables
       , renderTests packageTests
       , renderBenchmarks packageBenchmarks
@@ -154,11 +150,11 @@ renderFlag Flag {..} = Stanza ("flag " ++ flagName) $ description ++ [
   where
     description = maybe [] (return . Field "description" . Literal) flagDescription
 
-renderInternalLibraries :: Map String (Section Library) -> [Element]
-renderInternalLibraries = map renderInternalLibrary . Map.toList
+renderLibraries :: Map String (Section Library) -> [Element]
+renderLibraries = map renderNamedLibrary . Map.toList
 
-renderInternalLibrary :: (String, Section Library) -> Element
-renderInternalLibrary (name, sect) =
+renderNamedLibrary :: (String, Section Library) -> Element
+renderNamedLibrary (name, sect) =
   Stanza ("library " ++ name) (renderLibrarySection sect)
 
 renderExecutables :: Map String (Section Executable) -> [Element]
@@ -197,9 +193,6 @@ renderExecutableFields Executable{..} = mainIs ++ [otherModules, generatedModule
 renderCustomSetup :: CustomSetup -> Element
 renderCustomSetup CustomSetup{..} =
   Stanza "custom-setup" $ renderDependencies "setup-depends" customSetupDependencies
-
-renderLibrary :: Section Library -> Element
-renderLibrary sect = Stanza "library" $ renderLibrarySection sect
 
 renderLibrarySection :: Section Library -> [Element]
 renderLibrarySection = renderSection renderLibraryFields [] [defaultLanguage]

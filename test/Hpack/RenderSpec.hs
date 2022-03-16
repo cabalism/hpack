@@ -110,7 +110,7 @@ spec = do
         ]
 
     it "includes buildable" $ do
-      renderPackage_ package {packageLibrary = Just (section library){sectionBuildable = Just False}} `shouldBe` unlines [
+      renderPackage_ package {packageLibraries = [("", (section library){sectionBuildable = Just False})]} `shouldBe` unlines [
           "name: foo"
         , "version: 0.0.0"
         , "build-type: Simple"
@@ -122,7 +122,7 @@ spec = do
 
     context "when rendering library section" $ do
       it "renders library section" $ do
-        renderPackage_ package {packageLibrary = Just $ section library} `shouldBe` unlines [
+        renderPackage_ package {packageLibraries = [("", section library)]} `shouldBe` unlines [
             "name: foo"
           , "version: 0.0.0"
           , "build-type: Simple"
