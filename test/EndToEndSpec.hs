@@ -1075,11 +1075,11 @@ spec = around_ (inTempDirectoryNamed "foo") $ do
               foo (Blah as Etc)
           |]) {packageCabalVersion = "2.0"}
 
-    describe "internal-libraries" $ do
-      it "accepts internal-libraries" $ do
+    describe "libraries" $ do
+      it "accepts libraries" $ do
         touch "src/Foo.hs"
         [i|
-        internal-libraries:
+        libraries:
           bar:
             source-dirs: src
         |] `shouldRenderTo` namedLibrary "bar" [i|
@@ -1096,22 +1096,22 @@ spec = around_ (inTempDirectoryNamed "foo") $ do
       it "warns on unknown fields" $ do
         [i|
         name: foo
-        internal-libraries:
+        libraries:
           bar:
             baz: 42
-        |] `shouldWarn` pure "package.yaml: Ignoring unrecognized field $.internal-libraries.bar.baz"
+        |] `shouldWarn` pure "package.yaml: Ignoring unrecognized field $.libraries.bar.baz"
 
       it "warns on missing source-dirs" $ do
         [i|
         name: foo
-        internal-libraries:
+        libraries:
           bar:
             source-dirs: src
         |] `shouldWarn` pure "Specified source-dir \"src\" does not exist"
 
       it "accepts visibility" $ do
         [i|
-        internal-libraries:
+        libraries:
           bar:
             visibility: public
         |] `shouldRenderTo` (namedLibrary "bar" [i|

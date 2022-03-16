@@ -1,3 +1,6 @@
+## Changes in 0.35.0
+  - New section: `libraries`, replacing `internal-libraries` (a breaking change).
+
 ## Changes in 0.34.6
   - Add `Paths_` module to `autogen-modules` when `cabal-version >= 2`
 
